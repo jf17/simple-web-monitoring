@@ -226,6 +226,17 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             border-radius: 4px;
             border-left: 4px solid #ddd;
         }
+        .service-item.offline {
+            animation: blink-red 2s infinite;
+        }
+        @keyframes blink-red {
+            0%, 50% {
+                background-color: #f9f9f9;
+            }
+            25%, 75% {
+                background-color: #f44336;
+            }
+        }
         .service-info {
             flex: 1;
             display: flex;
@@ -265,10 +276,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
         .service-name {
             font-weight: bold;
             margin-right: 10px;
-        }
-        .service-url {
-            color: #666;
-            font-size: 0.9em;
         }
         .add-form {
             margin-top: 30px;
@@ -394,11 +401,10 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
                     }
                     
                     serviceList.innerHTML = services.map((service, index) => 
-                        '<div class="service-item">' +
+                        '<div class="service-item' + (service.status ? '' : ' offline') + '">' +
                             '<div class="service-info">' +
                                 '<div class="status-light ' + (service.status ? 'status-online' : 'status-offline') + '"></div>' +
                                 '<span class="service-name">' + service.name + '</span>' +
-                                '<span class="service-url">' + service.url + '</span>' +
                             '</div>' +
                             '<button class="delete-btn" onclick="removeService(' + index + ')" title="Удалить сервис">×</button>' +
                         '</div>'

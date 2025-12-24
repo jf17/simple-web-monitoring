@@ -180,6 +180,7 @@ func main() {
 	
 	// Настраиваем маршруты
 	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/edit", editHandler)
 	http.HandleFunc("/api/services", servicesHandler)
 	http.HandleFunc("/api/add", addServiceHandler)
 	http.HandleFunc("/api/remove", removeServiceHandler)
@@ -242,23 +243,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             display: flex;
             align-items: center;
         }
-        .delete-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: 10px;
-        }
-        .delete-btn:hover {
-            background: #c82333;
-        }
         .status-light {
             width: 12px;
             height: 12px;
@@ -277,38 +261,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             font-weight: bold;
             margin-right: 10px;
         }
-        .add-form {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f0f0f0;
-            border-radius: 4px;
-        }
-        .form-group {
-            margin: 10px 0;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"], input[type="url"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background: #007cba;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #005a87;
-        }
         .refresh-controls {
             display: flex;
             justify-content: space-between;
@@ -317,9 +269,27 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
         }
         .refresh-btn {
             background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
         .refresh-btn:hover {
             background: #218838;
+        }
+        .edit-btn {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .edit-btn:hover {
+            background: #005a87;
         }
         .countdown {
             font-size: 0.9em;
@@ -336,26 +306,14 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
             <div class="countdown">
                 Следующее обновление через: <span id="countdown">10</span> сек
             </div>
-            <button class="refresh-btn" onclick="manualRefresh()">Обновить сейчас</button>
+            <div>
+                <button class="refresh-btn" onclick="manualRefresh()">Обновить сейчас</button>
+                <a href="/edit" target="_blank" class="edit-btn">Редактировать список</a>
+            </div>
         </div>
         
         <div class="service-list" id="serviceList">
             <p>Загрузка сервисов...</p>
-        </div>
-        
-        <div class="add-form">
-            <h3>Добавить новый сервис</h3>
-            <form id="addServiceForm">
-                <div class="form-group">
-                    <label for="serviceName">Название сервиса:</label>
-                    <input type="text" id="serviceName" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="serviceUrl">URL сервиса:</label>
-                    <input type="url" id="serviceUrl" name="url" required placeholder="https://example.com">
-                </div>
-                <button type="submit">Добавить сервис</button>
-            </form>
         </div>
     </div>
 
@@ -406,7 +364,168 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
                                 '<div class="status-light ' + (service.status ? 'status-online' : 'status-offline') + '"></div>' +
                                 '<span class="service-name">' + service.name + '</span>' +
                             '</div>' +
-                            '<button class="delete-btn" onclick="removeService(' + index + ')" title="Удалить сервис">×</button>' +
+                        '</div>'
+                    ).join('');
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки сервисов:', error);
+                    document.getElementById('serviceList').innerHTML = '<p>Ошибка загрузки сервисов</p>';
+                });
+        }
+
+        // Загружаем сервисы при загрузке страницы
+        loadServices();
+        
+        // Запускаем счетчик
+        startCountdown();
+    </script>
+</body>
+</html>
+	`
+	
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, tmpl)
+}
+
+func editHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование списка сервисов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .service-list {
+            margin: 20px 0;
+        }
+        .service-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #ddd;
+        }
+        .service-info {
+            flex: 1;
+        }
+        .service-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .service-url {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        .add-form {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a87;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Редактирование списка сервисов</h1>
+        
+        <div class="service-list" id="serviceList">
+            <p>Загрузка сервисов...</p>
+        </div>
+        
+        <div class="add-form">
+            <h3>Добавить новый сервис</h3>
+            <form id="addServiceForm">
+                <div class="form-group">
+                    <label for="serviceName">Название сервиса:</label>
+                    <input type="text" id="serviceName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="serviceUrl">URL сервиса:</label>
+                    <input type="url" id="serviceUrl" name="url" required placeholder="https://example.com">
+                </div>
+                <button type="submit">Добавить сервис</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function loadServices() {
+            fetch('/api/services')
+                .then(response => response.json())
+                .then(services => {
+                    const serviceList = document.getElementById('serviceList');
+                    if (services.length === 0) {
+                        serviceList.innerHTML = '<p>Нет добавленных сервисов</p>';
+                        return;
+                    }
+                    
+                    serviceList.innerHTML = services.map((service, index) => 
+                        '<div class="service-item">' +
+                            '<div class="service-info">' +
+                                '<div class="service-name">' + service.name + '</div>' +
+                                '<div class="service-url">Адрес: ' + service.url + '</div>' +
+                            '</div>' +
+                            '<button class="delete-btn" onclick="removeService(' + index + ')" title="Удалить сервис из списка">Удалить сервис из списка</button>' +
                         '</div>'
                     ).join('');
                 })
@@ -473,9 +592,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 
         // Загружаем сервисы при загрузке страницы
         loadServices();
-        
-        // Запускаем счетчик
-        startCountdown();
     </script>
 </body>
 </html>
